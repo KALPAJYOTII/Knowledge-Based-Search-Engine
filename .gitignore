@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.python-version
+venv/
+.venv/
+ENV/
+env/
+
+# Backend environment and config
+backend/.venv/
+backend/*.env
+backend/.env
+backend/__pycache__/
+backend/*.pyc
+backend/coverage.xml
+backend/htmlcov/
+
+# Node
+node_modules/
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Frontend build
+frontend/Knowledge Based Answering RAG/dist/
+frontend/Knowledge Based Answering RAG/build/
+frontend/Knowledge Based Answering RAG/.vite/
+frontend/Knowledge Based Answering RAG/.env
+
+# System
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+
+# Generated files
+*.egg-info/
+*.eggs/
+*.whl
+*.wheel
+
+# Misc
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
+*.tmp
+*.temp
+
+# Python virtual environment directories
+.env/
+*/.env
+*/.venv
+*/venv
+*/ENV
