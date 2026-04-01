@@ -22,6 +22,11 @@
 
 ### Installation
 
+#### Clone the Repo
+```bash
+git clone https://github.com/KALPAJYOTII/Knowledge-Based-Search-Engine.git
+```
+
 #### Backend (FastAPI)
 1. Navigate to the backend directory:
 ```bash
