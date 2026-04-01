@@ -1,8 +1,69 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
+﻿import { useState } from 'react'
 import './App.css'
 
+function UploadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3v10m0 0l-3-3m3 3l3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 15.5V18a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="1.8" fill="none" />
+      <path d="m16.5 16.5 3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function DocumentIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M15 3v5h5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9 12h6M9 16h3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function SparkleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 2.5l1.57 3.18 3.52.51-2.55 2.49.61 3.52L12 11.18l-3.15 1.65.61-3.52L7 6.19l3.52-.51L12 2.5Z" fill="currentColor" />
+    </svg>
+  )
+}
+
+function Card({ children, className = '' }) {
+  return <section className={`card ${className}`}>{children}</section>
+}
+
+function Button({ children, variant = 'primary', className = '', ...props }) {
+  return (
+    <button className={`button button-${variant} ${className}`} {...props}>
+      {children}
+    </button>
+  )
+}
+
+function Input(props) {
+  return <input className="field field-input" {...props} />
+}
+
+function Textarea(props) {
+  return <textarea className="field field-textarea" {...props} />
+}
+
+function Spinner() {
+  return <div className="spinner" aria-label="Loading" />
+}
+
 function App() {
+  const rawBaseUrl = import.meta.env.VITE_BASE_URL || ''
+  const BASE_URL = rawBaseUrl.replace(/\/+$/, '')
   const [files, setFiles] = useState([])
   const [textInput, setTextInput] = useState('')
   const [query, setQuery] = useState('')
@@ -11,9 +72,58 @@ function App() {
   const [retrievedChunks, setRetrievedChunks] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [dragActive, setDragActive] = useState(false)
+
+  const readResponseText = async (response) => {
+    try {
+      return await response.clone().text()
+    } catch {
+      return ''
+    }
+  }
+
+  const parseJsonResponse = async (response) => {
+    const text = await readResponseText(response)
+    if (!text) return null
+    try {
+      return JSON.parse(text)
+    } catch {
+      return null
+    }
+  }
+
+  const getResponseErrorMessage = async (response, defaultMessage) => {
+    const payload = await parseJsonResponse(response)
+    if (payload?.detail) return payload.detail
+    if (payload && typeof payload === 'object') return JSON.stringify(payload)
+
+    const rawText = await readResponseText(response)
+    if (rawText) return rawText
+
+    return `${response.status} ${response.statusText || defaultMessage} (${response.url})`
+  }
+
+  const buildUrl = (endpoint) => {
+    return BASE_URL ? `${BASE_URL}${endpoint}` : endpoint
+  }
 
   const handleFilesChange = (event) => {
     setFiles(Array.from(event.target.files))
+  }
+
+  const handleDragOver = (event) => {
+    event.preventDefault()
+    setDragActive(true)
+  }
+
+  const handleDragLeave = () => {
+    setDragActive(false)
+  }
+
+  const handleDrop = (event) => {
+    event.preventDefault()
+    setDragActive(false)
+    setFiles(Array.from(event.dataTransfer.files))
   }
 
   const uploadFiles = async () => {
@@ -33,18 +143,18 @@ function App() {
         const formData = new FormData()
         formData.append('file', file)
 
-        const response = await fetch(`${process.env.BASE_URL}/api/documents/upload`, {
+        const response = await fetch(buildUrl('/api/documents/upload'), {
           method: 'POST',
           body: formData,
         })
 
         if (!response.ok) {
-          const payload = await response.json()
-          throw new Error(payload.detail || 'Upload failed')
+          const message = await getResponseErrorMessage(response, 'Upload failed')
+          throw new Error(message)
         }
 
-        const data = await response.json()
-        results.push(`${data.filename}: ${data.chunks_created} chunks added`)
+        const data = await parseJsonResponse(response)
+        results.push(`${data?.filename || file.name}: ${data?.chunks_created ?? 'unknown'} chunks added`)
       } catch (err) {
         results.push(`${file.name}: ${err.message}`)
       }
@@ -65,7 +175,7 @@ function App() {
     setUploadMessage('Uploading text content...')
 
     try {
-      const response = await fetch(`${process.env.BASE_URL}/api/documents/upload-text`, {
+      const response = await fetch(buildUrl('/api/documents/upload-text'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,12 +188,12 @@ function App() {
       })
 
       if (!response.ok) {
-        const payload = await response.json()
-        throw new Error(payload.detail || 'Upload failed')
+        const message = await getResponseErrorMessage(response, 'Upload failed')
+        throw new Error(message)
       }
 
-      const data = await response.json()
-      setUploadMessage(`Text upload succeeded: ${data.chunks_created} chunks added`)
+      const data = await parseJsonResponse(response)
+      setUploadMessage(`Text upload succeeded: ${data?.chunks_created ?? 'unknown'} chunks added`)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -103,7 +213,7 @@ function App() {
     setRetrievedChunks([])
 
     try {
-      const response = await fetch(`${process.env.BASE_URL}/api/query`, {
+      const response = await fetch(buildUrl('/api/query'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -112,15 +222,16 @@ function App() {
       })
 
       if (!response.ok) {
-        const payload = await response.json()
-        throw new Error(payload.detail || 'Query failed')
+        const message = await getResponseErrorMessage(response, 'Query failed')
+        throw new Error(message)
       }
 
-      const data = await response.json()
-      setAnswer(data.answer)
+      const data = await parseJsonResponse(response)
+      if (!data) {
+        throw new Error('No valid response returned from query')
+      }
 
-      console.log('Query answer:', data)
-      console.log('Retrieved chunks:', data.retrieved_chunks)
+      setAnswer(data.answer)
       setRetrievedChunks(data.retrieved_chunks || [])
     } catch (err) {
       setError(err.message)
@@ -129,78 +240,159 @@ function App() {
     }
   }
 
+  const fileLabel = files.length ? files.map((file) => file.name).join(', ') : 'No files selected yet'
+
   return (
-    <div className="app-container">
-      <header className="app-header">
-        <img src={heroImg} className="hero-image" alt="Hero" />
-        <div>
-          <h1>Knowledge-Based Search</h1>
-          <p>Upload PDF(s) or text, store them in the vector database, then query the content.</p>
+    <div className="page-shell">
+      <div className="page-intro">
+        <div className="brand-bar">
+          <div className="brand-mark">
+            <SearchIcon />
+          </div>
+          <div>
+            <p className="eyebrow">Knowledge-Based Search</p>
+            <h1 className='text-3xl'>Search documents with AI-powered retrieval</h1>
+            <p className="hero-copy">
+              Upload PDFs or paste text content, then ask natural language questions against your indexed data.
+              Built for fast answers, clear sources, and a polished search experience.
+            </p>
+          </div>
         </div>
-      </header>
 
-      <main className="app-main">
-        <section className="upload-section">
-          <h2>Upload PDF Files</h2>
-          <input type="file" accept="application/pdf" multiple onChange={handleFilesChange} />
-          <button onClick={uploadFiles} disabled={loading}>
-            Upload Selected Files
-          </button>
+        <div className="hero-features">
+          <div className="feature-card">
+            <p className="feature-title">Upload or paste text</p>
+            <p>Ingest documents and content quickly without complex setup.</p>
+          </div>
+          <div className="feature-card">
+            <p className="feature-title">Ask any question</p>
+            <p>Use natural language queries to explore your knowledge base.</p>
+          </div>
+          <div className="feature-card">
+            <p className="feature-title">See source-backed answers</p>
+            <p>Review answers with supporting document snippets and confidence.</p>
+          </div>
+        </div>
+      </div>
 
-          <h2>Upload Text</h2>
-          <textarea
-            value={textInput}
-            onChange={(event) => setTextInput(event.target.value)}
-            placeholder="Paste text here to upload and index"
-            rows={10}
-          />
-          <button onClick={uploadText} disabled={loading}>
-            Upload Text
-          </button>
+      <main className="grid-layout">
+        <Card>
+          <div className="section-header">
+            <div>
+              <p className="section-label">Upload</p>
+              <h2>Ingest files and text</h2>
+            </div>
+            <span className="status-pill">PDF + text ready</span>
+          </div>
+
+          <div
+            className={`drop-zone ${dragActive ? 'drag-active' : ''}`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <UploadIcon />
+            <div>
+              <p className="drop-title">Drag & drop documents here</p>
+              <p className="drop-copy">Drop PDFs to upload them for semantic search indexing.</p>
+            </div>
+            <p className="drop-note">{fileLabel}</p>
+            <input
+              type="file"
+              accept="application/pdf"
+              multiple
+              className="file-input"
+              onChange={handleFilesChange}
+            />
+          </div>
+
+          <div className="button-row">
+            <Button type="button" onClick={uploadFiles} disabled={loading}>
+              Upload PDF
+            </Button>
+            <Button type="button" variant="secondary" onClick={uploadText} disabled={loading}>
+              Upload Text
+            </Button>
+          </div>
+
+          <div className="field-group">
+            <label className="field-label" htmlFor="text-upload">
+              Paste text to index
+            </label>
+            <Textarea
+              id="text-upload"
+              value={textInput}
+              onChange={(event) => setTextInput(event.target.value)}
+              placeholder="Paste your notes, summaries, or document content here..."
+              rows={6}
+            />
+          </div>
 
           {uploadMessage && (
-            <div className="status-message">
-              <pre>{uploadMessage}</pre>
+            <div className="message-card message-info">
+              <p>{uploadMessage}</p>
             </div>
           )}
-        </section>
+        </Card>
 
-        <section className="query-section">
-          <h2>Query Indexed Content</h2>
-          <input
-            type="text"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Ask a question based on the uploaded content"
-          />
-          <button onClick={handleQuery} disabled={loading}>
-            Run Query
-          </button>
-
-          {error && <div className="error-message">{error}</div>}
-          {loading && <div className="loading-message">Working…</div>}
-
-          {answer && (
-            <div className="answer-box">
-              <h3>Answer</h3>
-              <p>{answer}</p>
+        <div className="right-column">
+          <Card>
+            <div className="section-header">
+              <div>
+                <p className="section-label">Query</p>
+                <h2>Ask your knowledge base</h2>
+              </div>
             </div>
-          )}
+            <div className="query-row">
+              <Input
+                type="text"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Ask a question about your uploaded content"
+              />
+              <Button type="button" onClick={handleQuery} disabled={loading}>
+                <SearchIcon />
+                Search
+              </Button>
+            </div>
+            {error && <div className="message-card message-error">{error}</div>}
+            {loading && (
+              <div className="status-row">
+                <Spinner />
+                <span>Searching your knowledge base</span>
+              </div>
+            )}
+          </Card>
 
-          {retrievedChunks.length > 0 && (
-            <div className="results-box">
-              <h3>Retrieved Chunks</h3>
-              <ul>
+          <Card className="results-card">
+            <div className="section-header">
+              <div>
+                <p className="section-label">Results</p>
+                <h2>Answer & sources</h2>
+              </div>
+            </div>
+            {answer ? (
+              <div className="result-box">
+                <p className="result-title">Answer</p>
+                <p>{answer}</p>
+              </div>
+            ) : (
+              <div className="empty-state">
+                <p>Ask a question to see the answer and supporting document snippets.</p>
+              </div>
+            )}
+            {retrievedChunks.length > 0 && (
+              <div className="reference-list">
                 {retrievedChunks.map((chunk, index) => (
-                  <li key={index}>
-                    <strong>Score:</strong> {chunk.similarity_score?.toFixed(4)}<br />
-                    <strong>Text:</strong> {chunk.chunk_text}
-                  </li>
+                  <div key={index} className="reference-card">
+                    <p className="reference-score">Score: {chunk.similarity_score?.toFixed(4)}</p>
+                    <p>{chunk.chunk_text}</p>
+                  </div>
                 ))}
-              </ul>
-            </div>
-          )}
-        </section>
+              </div>
+            )}
+          </Card>
+        </div>
       </main>
     </div>
   )
