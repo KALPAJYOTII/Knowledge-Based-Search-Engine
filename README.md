@@ -11,7 +11,9 @@
 - Gemini 2.5 Flash
 #### Vector Database
 - AstraDB
-
+  
+#### Demo Video
+https://drive.google.com/file/d/1JV9rpWzryol4F_dIis6NFkRKXF03uMuq/view?usp=sharing
 
 ## Getting Started
 
